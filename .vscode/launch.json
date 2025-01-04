@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug (C++) - Build and Debug",
+      "type": "cppvsdbg",  // Using the Visual Studio Debugger for MSVC
+      "request": "launch",
+      "program": "${workspaceFolder}/build/lavalamp.exe",  // Path to your executable
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "preLaunchTask": "Build", // Make sure this corresponds to your build task
+    }
+  ]
+}
