@@ -4,11 +4,13 @@ layout(location = 1) in vec3 fragPos;
 
 layout(location = 0) out vec4 FragColor;
 
-layout(location = 3) uniform vec3 objectColor;
-layout(location = 4) uniform vec3 lightColor;
-layout(location = 5) uniform vec3 lightPos;
+layout(std140, binding = 1) uniform Light {
+    vec3 objectColor;
+    vec3 lightColor;
+    vec3 lightPos;
+}
 
-struct Material {
+layout(std140, binding = 2) uniform Material {
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
@@ -16,7 +18,7 @@ struct Material {
 };
 
 // layout(location = 6) uniform Material material;
-Material material = {vec3(1.0, 0.5, 0.31), vec3(1.0, 0.5, 0.31), vec3(0.5, 0.5, 0.5), 32.0};
+// Material material = {vec3(1.0, 0.5, 0.31), vec3(1.0, 0.5, 0.31), vec3(0.5, 0.5, 0.5), 32.0};
 
 void main()
 {

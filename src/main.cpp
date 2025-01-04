@@ -1,10 +1,12 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <iostream>
-#include "shaders.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include "sphere.h"
+#include "shaders.h"
+#include <iostream>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -150,6 +152,9 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    #ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Required on macOS
+    #endif
 
     GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Lava Lamp", nullptr, nullptr);
     if (!window) {
@@ -171,28 +176,32 @@ int main() {
     GLuint objectProgram = createShaderProgramFromBinaries(object_vs_binary, object_vs_binary_size, object_fs_binary, object_fs_binary_size);
     // GLuint lightSourceProgram = createShaderProgramFromBinaries(lightSource_vs_binary, lightSource_vs_binary_size, lightSource_fs_binary, lightSource_fs_binary_size);
 
-    GLuint VBO;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    GLuint matricesUBO, lightUBO, materialUBO;
+    Sphere::Sphere sphere(1, 5, 5);
 
-    GLuint cubeVAO;
-    glGenVertexArrays(1, &cubeVAO);
+    // Create buffers for the uniform blocks
+    glGenBuffers(1, &matricesUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, matricesUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::mat4) * 3, nullptr, GL_STATIC_DRAW); // Model, View, Projection
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, matricesUBO, 0, sizeof(glm::mat4) * 3); // Bind to binding point 0
 
-    glBindVertexArray(cubeVAO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glGenBuffers(1, &lightUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, lightUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec3) * 3, nullptr, GL_STATIC_DRAW); // Object color, Light color, Light position
+    glBindBufferRange(GL_UNIFORM_BUFFER, 1, lightUBO, 0, sizeof(glm::vec3) * 3); // Bind to binding point 1
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GL_FLOAT), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GL_FLOAT), (void*)(3 * sizeof(GL_FLOAT)));
-    glEnableVertexAttribArray(1);
+    glGenBuffers(1, &materialUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, materialUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec3) * 3 + sizeof(float), nullptr, GL_STATIC_DRAW); // Ambient, Diffuse, Specular, Shininess
+    glBindBufferRange(GL_UNIFORM_BUFFER, 2, materialUBO, 0, sizeof(glm::vec3) * 3 + sizeof(float)); // Bind to binding point 2
 
-    GLuint lightVAO;
-    glGenVertexArrays(1, &lightVAO);
-    glBindVertexArray(lightVAO);
+    glBindBuffer(GL_UNIFORM_BUFFER, materialUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec3), glm::value_ptr(glm::vec3(1.0f, 0.5f, 0.31f))); // Ambient
+    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::vec3), sizeof(glm::vec3), glm::value_ptr(glm::vec3(1.0f, 0.5f, 0.31f))); // Diffuse
+    glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::vec3), sizeof(glm::vec3), glm::value_ptr(glm::vec3(0.5f, 0.5f, 0.5f))); // Specular
+    float shininess = 32.0f;
+    glBufferSubData(GL_UNIFORM_BUFFER, 3 * sizeof(glm::vec3), sizeof(float), &shininess);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GL_FLOAT), (void*)0);
-    glEnableVertexAttribArray(0);
-    
 
     glm::mat4 view = glm::mat4(1.0f);
     view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
@@ -216,17 +225,26 @@ int main() {
 
         // Draw the cubes
         glUseProgram(objectProgram);
-        glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(projection));
-        glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(view));
-        glUniform3fv(3, 1, glm::value_ptr(objectColor));
-        glUniform3fv(4, 1, glm::value_ptr(lightColor));
-        glUniform3fv(5, 1, glm::value_ptr(lightPosition));
+        // glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(projection));
+        // glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(view));
+        // glUniform3fv(3, 1, glm::value_ptr(objectColor));
+        // glUniform3fv(4, 1, glm::value_ptr(lightColor));
+        // glUniform3fv(5, 1, glm::value_ptr(lightPosition));
+        glBindBuffer(GL_UNIFORM_BUFFER, lightUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::vec3), glm::value_ptr(objectColor));
+        glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::vec3), sizeof(glm::vec3), glm::value_ptr(lightColor));
+        glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::vec3), sizeof(glm::vec3), glm::value_ptr(lightPos));
+
+        glBindBuffer(GL_UNIFORM_BUFFER, matricesUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(view));
+        glBufferSubData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projection));
         for (int i = 0; i < 2; i++) {
             glm::mat4 model(1.0f);
             model = glm::mat4(1.0f);
             model = glm::translate(model, positions[i]);
             model = glm::scale(model, glm::vec3(0.4f));
-            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(model));
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(model));
+            // glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(model));
             // render the cube
             glBindVertexArray(cubeVAO);
             glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(GLfloat));

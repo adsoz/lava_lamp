@@ -2,9 +2,11 @@
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 
-layout(location = 0) uniform mat4 model;
-layout(location = 1) uniform mat4 view;
-layout(location = 2) uniform mat4 projection;
+layout(std140, binding = 0) uniform Matrices {
+    mat4 model;
+    mat4 view;
+    mat4 projection;
+};
 
 layout(location = 0) out vec3 normal;
 layout(location = 1) out vec3 fragPos;
