@@ -16,36 +16,6 @@
       }
     },
     {
-      "label": "Build Shaders",
-      "type": "shell",
-      "command": "cmd.exe",
-      "args": [
-        "/C",
-        "for %f in (${workspaceFolder}\\shaders\\*.glsl) do glslangValidator -G %f -o ${workspaceFolder}/build/%~nf.spv"
-      ],
-      "dependsOn": ["Clean"],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      }
-    },
-    {
-      "label": "Convert Shaders to Header",
-      "type": "shell",
-      "command": "py",
-      "args": [
-        "${workspaceFolder}/scripts/binToHeader.py",
-        "build/*.spv",
-        "-o",
-        "./include/shaders.h"
-      ],
-      "dependsOn": ["Build Shaders"],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      }
-    },
-    {
       "label": "Build",
       "type": "shell",
       "command": "cmd.exe",
@@ -58,14 +28,13 @@
         "/MDd",
         "/I", "D:/ThirdPartyLibraries/Include", 
         "/I", "./include",
-        "src/*.cpp", "src/*.c",
+        "src/*",
         "/Fobuild/obj/",
         "/link",
         "/LIBPATH:D:/ThirdPartyLibraries/Lib",
         "glfw3.lib", "opengl32.lib", "user32.lib", "gdi32.lib", "shell32.lib",
         "/OUT:./build/lavalamp.exe"
       ],
-      "dependsOn": ["Clean", "Convert Shaders to Header"],
       "group": {
         "kind": "build",
         "isDefault": true
