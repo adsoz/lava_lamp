@@ -23,6 +23,7 @@ GLuint compileShaderFromPath(const std::string &shaderPath, GLenum shaderType) {
         glGetShaderInfoLog(shader, 512, nullptr, infoLog);
         std::cerr << "Failed to compile shaders (" << shaderPath << "): " << infoLog << std::endl;
         glDeleteShader(shader);
+        shader = 0;
     }
 
     return shader;
@@ -32,6 +33,8 @@ GLuint makeProgram(const std::string &vsPath, const std::string &fsPath) {
     GLuint vs = compileShaderFromPath(vsPath, GL_VERTEX_SHADER);
     GLuint fs = compileShaderFromPath(fsPath, GL_FRAGMENT_SHADER);
 
+    if (!vs || !fs) return 0;
+    
     GLuint program = glCreateProgram();
     glAttachShader(program, vs);
     glAttachShader(program, fs);

@@ -1,10 +1,10 @@
 #include <glad/glad.h>
 #include <string>
 
-// compiles shader from a shaderPath
+// compiles shader from a shaderPath, returns 0 if error occurs
 GLuint compileShaderFromPath(const std::string &shaderPath, GLenum shaderType);
 
-// generates a shader program from vertex shader path and fragment shader path
+// generates a shader program from vertex shader path and fragment shader path, returns 0 if error occurs
 GLuint makeProgram(const std::string &vsPath, const std::string &fsPath);
 
 // saves program to path 

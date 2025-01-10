@@ -1,6 +1,6 @@
 #version 460 core
 
-#define BLOB_COUNT 2
+#define MAX_BLOBS 20
 
 layout(location = 0) out vec4 FragColor;
 
@@ -20,27 +20,31 @@ layout(std140) uniform Material {
     vec4 diffuse;
     vec4 specular;
     float shininess;
+    float opacity;
+    float refractiveIndex;
 };
 
 layout(std140) uniform BlobData {
-    vec4 blobs[BLOB_COUNT]; // x, y, z, radius
+    vec4 blobs[MAX_BLOBS]; // x, y, z, radius
 };
+layout(location = 7) uniform int blobCount;
+layout(location = 8) uniform float threshold;
 
-layout(location = 7) uniform float threshold;
+layout(location = 9) uniform vec4 backgroundColor;
 
-const float stepSize = 0.1;
-const int maxSteps = 100;
+const float stepSize = 0.01;
+const int maxSteps = 1000;
 
 float blobField(vec3 p) {
     float field = 0.0;
-    for (int i = 0; i < BLOB_COUNT; ++i) {
+    for (int i = 0; i < blobCount; ++i) {
         field += blobs[i].w * blobs[i].w / distance(p, blobs[i].xyz);
     }
     return field;
 }
 
 vec3 estimateNormal(vec3 p) {
-    float EPSILON = 0.01;
+    float EPSILON = 0.001;
     return normalize(vec3(
         blobField(p + vec3(EPSILON, 0, 0)) - blobField(p - vec3(EPSILON, 0, 0)),
         blobField(p + vec3(0, EPSILON, 0)) - blobField(p - vec3(0, EPSILON, 0)),
@@ -48,8 +52,7 @@ vec3 estimateNormal(vec3 p) {
     ));
 }
 
-void main()
-{
+void main() {
     vec2 ndc = gl_FragCoord.xy / vec2(width, height) * 2.0 - 1.0; // convert screen space to normalized device coords
     ndc.y = -ndc.y; // flip y axis for OpenGL coord system
 
@@ -73,7 +76,7 @@ void main()
         vec3 p = rayOrigin + depth * rayDir;
         float field = blobField(p);
 
-        if (field > threshold) {
+        if (field > threshold) { 
 
             vec4 ambientColor = ambient * lightColor;
 
@@ -88,6 +91,7 @@ void main()
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
             vec4 specularColor = specular * spec * lightColor;
 
+            // light of an object is the sum of the light that is reflected, the light that is refracted and scattered back, and the light that is 
 
             FragColor = color * (diffuseColor + ambientColor + specularColor);
             return;
@@ -97,7 +101,6 @@ void main()
         depth += stepSize;
     }
 
-    FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    FragColor = backgroundColor;
 
-    
 }

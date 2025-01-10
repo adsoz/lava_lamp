@@ -4,28 +4,28 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "sphere.h"
-#include "shader_utils.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <iostream>
+#include <vector>
+#include <random>
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
+#include "shader_utils.h"
+#include "pnoise.h"
+#include "blob.h"
 
-#define BLOB_COUNT 2
+#define WINDOW_WIDTH 608
+#define WINDOW_HEIGHT 1000
+// #define WINDOW_WIDTH 1050
+// #define WINDOW_HEIGHT 608
+
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-glm::vec4 objectColor(1.0f, 0.5f, 0.2f, 1.0f);
-glm::vec4 lightColor(1.0f, 1.0f, 1.0f, 1.0f);
-
-glm::vec3 positions[] = {
-    glm::vec3(0.5f, 0.0f, 0.0f),
-    glm::vec3(-0.5f, 0.0f, 0.0f),
-};
-
 float quadVertices[] = {
-    // Positions (NDC)
     -1.0f, -1.0f,  // Bottom-left
      1.0f, -1.0f,  // Bottom-right
     -1.0f,  1.0f,  // Top-left
@@ -36,38 +36,80 @@ float quadVertices[] = {
 };
 
 // set the light source behind the camera
-glm::vec3 lightPos(0.0f, 0.0f, 4.0f);
-glm::vec3 viewPos(0.0f, 0.0f, 3.0f);
+glm::vec3 lightPos(0.0f, -1.0f, -3.0f);
+glm::vec4 lightColor(1.0f, 1.0f, 1.0f, 1.0f);
+float lightIntensity = 1.0f;
 
-void framebuffer_size_callback(GLFWwindow *win, int width, int height) {
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
-    glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(projection));
+glm::vec3 viewPos(0.0f, 0.0f, 0.0f);
 
-    glViewport(0, 0, width, height);
-}
 
-void processInput(GLFWwindow *win) {
-    float cameraSpeed = 2.5f * deltaTime;
+float halfFrustumHeight = 3.0f * tanf(glm::radians(45.0f) / 2.0f);
+float halfFrustumWidth = halfFrustumHeight * (static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT));
 
-    if (glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(win, true);
-    }
 
-    if (glfwGetKey(win, GLFW_KEY_W) == GLFW_PRESS)
-        viewPos += cameraSpeed * glm::vec3(0.0f, 1.0f, 0.0);
-    if (glfwGetKey(win, GLFW_KEY_S) == GLFW_PRESS)
-        viewPos -= cameraSpeed * glm::vec3(0.0f, 1.0f, 0.0);
-    if (glfwGetKey(win, GLFW_KEY_A) == GLFW_PRESS)
-        viewPos += cameraSpeed * glm::vec3(1.0f, 0.0f, 0.0);
-    if (glfwGetKey(win, GLFW_KEY_D) == GLFW_PRESS)
-        viewPos -= cameraSpeed * glm::vec3(1.0f, 0.0f, 0.0);
-    if (glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        viewPos += cameraSpeed * glm::vec3(0.0f, 0.0f, 1.0);
-    if (glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-        viewPos -= cameraSpeed * glm::vec3(0.0f, 0.0f, 1.0);
-}
+void framebuffer_size_callback(GLFWwindow *win, int width, int height);
+void processInput(GLFWwindow *win);
+
+// struct Material {
+//     glm::vec4 color;
+//     glm::vec4 ambient;
+//     glm::vec4 diffuse;
+//     glm::vec4 specular;
+//     float shininess;
+//     float opacity;
+//     float refractiveIndex;
+//     Material(
+//         glm::vec4 color, 
+//         glm::vec4 ambient, 
+//         glm::vec4 diffuse, 
+//         glm::vec4 specular, 
+//         float shininess,
+//         float opacity,
+//         float refractiveIndex
+//     ) : 
+//         color{color}, 
+//         ambient{ambient}, 
+//         diffuse{diffuse}, 
+//         specular{specular}, 
+//         shininess{shininess},
+//         opacity{opacity},
+//         refractiveIndex{refractiveIndex}
+//     {};
+// };
+
+struct Material {
+    glm::vec3 albedo;
+    float metallic;
+    float roughness;
+    float ao;
+    float subsurfaceRadius;
+    float scatteringCoefficient;
+    float transmissionCoefficent;
+    float scatteringDistance;
+    Material (
+        glm::vec3 albedo,
+        float metallic,
+        float roughness,
+        float ao,
+        float subsurfaceRadius,
+        float scatteringCoefficient,
+        float transmissionCoefficent,
+        float scatteringDistance
+    ) :
+        albedo{albedo},
+        metallic{metallic},
+        roughness{roughness},
+        ao{ao},
+        subsurfaceRadius{subsurfaceRadius},
+        scatteringCoefficient{scatteringCoefficient},
+        transmissionCoefficent{transmissionCoefficent},
+        scatteringDistance{scatteringDistance}
+    {};
+};
 
 int main() {
+    PerlinNoise pn;
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -89,6 +131,15 @@ int main() {
     // set callbacks
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+    // initialize imGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO & io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init();
+
     // If the shader has already been compiled load it from binary, otherwise compile and save it
     GLuint blobProgram;
     std::string shaderBinaryPath = "build/shaders/blob_shader.bin";
@@ -96,38 +147,32 @@ int main() {
         blobProgram = loadProgram(shaderBinaryPath);
     }
     else {
-        blobProgram = makeProgram("shaders/blob_vs.glsl", "shaders/blob_fs.glsl");
+        // blobProgram = makeProgram("shaders/blob_vs.glsl", "shaders/blob_fs.glsl");
+        blobProgram = makeProgram("shaders/blob_vs.glsl", "shaders/blob_pbr_fs.glsl");
         if (blobProgram) saveProgramBinary(blobProgram, shaderBinaryPath);
     }
     glUseProgram(blobProgram);
 
-    struct Material {
-        glm::vec4 color;
-        glm::vec4 ambient;
-        glm::vec4 diffuse;
-        glm::vec4 specular;
-        float shininess;
-        Material(
-            glm::vec4 color, 
-            glm::vec4 ambient, 
-            glm::vec4 diffuse, 
-            glm::vec4 specular, 
-            float shininess
-        ) : 
-            color{color}, 
-            ambient{ambient}, 
-            diffuse{diffuse}, 
-            specular{specular}, 
-            shininess{shininess} 
-        {};
-    };
+    // // Create and bind blob material to shader
+    // Material objectMat(
+    //     objectColor,
+    //     glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
+    //     glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
+    //     glm::vec4(0.2f, 0.2f, 0.2f, 0.0f), 
+    //     32.0f,
+    //     0.4f, // opacity
+    //     1.47f // refractive index
+    // );
 
     Material objectMat(
-        objectColor,
-        glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
-        glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
-        glm::vec4(0.5f, 0.5f, 0.5f, 0.0f), 
-        32.0
+        glm::vec3(1.0f, 0.6f, 0.0f), // albedo
+        0.1, // metallic,
+        0.1, // roughness,
+        1.0, // ao,
+        0.2, // subsurfaceRadius,
+        0.1, // scatteringCoefficient,
+        0.0, // transmissionCoefficent,
+        1.0 // scatteringDistance
     );
 
     GLuint materialUBO;
@@ -138,23 +183,35 @@ int main() {
     GLuint materialBlockIndex = glGetUniformBlockIndex(blobProgram, "Material");
     glUniformBlockBinding(blobProgram, materialBlockIndex, 0);
 
-    struct Blob {
-        glm::vec4 pos_R;
-        Blob(GLfloat x, GLfloat y, GLfloat z, GLfloat r) : pos_R{x, y, z, r} {};
-        Blob(glm::vec3 pos, GLfloat r) : pos_R{pos.x, pos.y, pos.z, r} {};
-    };
+    
+    // Init blobs
+    int blobCount = 14;
+    float speed = 0.25f;
+    std::vector<Blob> blobs;
+    for (int i = 0; i < blobCount; i++) {
+        glm::vec3 pos{
+            glm::clamp(pn.perlinNoise(glfwGetTime() + i + 1000.0f, 2, 1.0f) * halfFrustumWidth, -halfFrustumWidth, halfFrustumWidth), 
+            glm::clamp(pn.perlinNoise(glfwGetTime() + i + 1000.0f, 2, 1.0f) * halfFrustumHeight, -halfFrustumHeight, halfFrustumHeight), 
+            -3.0f
+        };
+        glm::vec3 vel{
+            pn.perlinNoise(glfwGetTime() + pos.x + i, 6, 1.0f) * speed, 
+            pn.perlinNoise(glfwGetTime() + pos.y + i, 6, 1.0f) * speed, 
+            0.0f
+        };
+        blobs.emplace_back(pos, vel, 0.2f, halfFrustumHeight);
+    }
 
-    // std::vector<Blob> blobs;
-    // for (int i = 0; i < BLOB_COUNT; i++) {
-    //     blobs.emplace_back(positions[i], 1.0f);
-    // }
+    std::vector<glm::vec4> blobData(blobCount);
+    for (int i = 0; i < blobCount; i++) {
+        blobData.emplace_back(blobs[i].pos, blobs[i].radius);
+    }
 
-    Blob blobs[2] = { Blob(positions[0], 0.5f), Blob(positions[1], 0.5f) }; // for now
-
+    // Bind other uniforms
     GLuint blobsUBO;
     glGenBuffers(1, &blobsUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, blobsUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(blobs), blobs, GL_STATIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, blobData.size() * sizeof(glm::vec4), blobData.data(), GL_DYNAMIC_DRAW);
 
     GLuint blobsBlockIndex = glGetUniformBlockIndex(blobProgram, "BlobData");
     glUniformBlockBinding(blobProgram, blobsBlockIndex, 1);
@@ -170,8 +227,11 @@ int main() {
     glUniform1f(5, static_cast<float>(WINDOW_WIDTH));
     glUniform1f(6, static_cast<float>(WINDOW_HEIGHT));
     
-    glUniform1f(7, 1.0f); // threshold for ray marching
-
+    glUniform1i(7, blobCount);
+    glUniform1f(8, 1.0f); // threshold for ray marching
+    glUniform4fv(9, 1, glm::value_ptr(glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)));
+    glUniform1f(10, lightIntensity); 
+    // Bind screen quads
     GLuint quadVAO, quadVBO;
 
     glGenVertexArrays(1, &quadVAO);
@@ -187,9 +247,6 @@ int main() {
     // Unbind the VAO
     glBindVertexArray(0);
 
-    
-
-
     glEnable(GL_DEPTH_TEST);
 
     // render loop
@@ -198,8 +255,60 @@ int main() {
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
         // std::cout << "FPS: " << 1 / deltaTime << '\n';
-
         // input
+        glfwPollEvents();
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Blob Material Properties");
+        ImGui::Text("Modify Blob Material");
+
+        static glm::vec3 albedo = objectMat.albedo;
+        if (ImGui::ColorEdit3("Blob Color", glm::value_ptr(albedo))) {
+            objectMat.albedo = albedo;
+            glBindBuffer(GL_UNIFORM_BUFFER, materialUBO);
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Material), &objectMat);
+        }
+        ImGui::Separator();
+
+        ImGui::SliderFloat("Metallic", &objectMat.metallic, 0.0f, 1.0f);
+        ImGui::SliderFloat("Roughness", &objectMat.roughness, 0.0f, 1.0f);
+        ImGui::SliderFloat("Ambient Occlusion", &objectMat.ao, 0.0f, 1.0f);
+        ImGui::SliderFloat("subsurfaceRadius", &objectMat.subsurfaceRadius, 0.0f, 10.0f);
+        ImGui::SliderFloat("scatteringCoefficent", &objectMat.scatteringCoefficient, 0.0f, 1.0f);
+        ImGui::SliderFloat("transmissionCoefficent", &objectMat.transmissionCoefficent, 0.0f, 1.0f);
+        ImGui::SliderFloat("scatteringDistance", &objectMat.scatteringDistance, 0.0f, 10.0f);
+        
+
+        // Update the uniform buffer with the new values
+        glBindBuffer(GL_UNIFORM_BUFFER, materialUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Material), &objectMat);
+
+
+        ImGui::End();
+
+        ImGui::Begin("Light Properties");
+        ImGui::Text("Modify Light Properties");
+        if (ImGui::ColorEdit3("Light Color", glm::value_ptr(lightColor))) {
+            glUniform4fv(0, 1, glm::value_ptr(lightColor));
+        }
+        ImGui::SliderFloat("Light Intensity", &lightIntensity, 0.0f, 10.0f);
+        glUniform1f(10, lightIntensity); // light intensity
+
+        ImGui::End();
+
+        ImDrawList *drawList = ImGui::GetForegroundDrawList();
+
+        ImVec2 pos(10.0f, 10.0f);
+        ImU32 color = IM_COL32(255, 255, 0, 255);
+        char fpsText[25];
+        std::snprintf(fpsText, sizeof(fpsText), "FPS: %.2f", 1.0f / deltaTime);
+        drawList->AddText(pos, color, fpsText);
+
+
+
         processInput(window);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -207,25 +316,46 @@ int main() {
 
         glUniform3fv(2, 1, glm::value_ptr(viewPos));
         glm::mat4 view = glm::mat4(1.0f);
-        view = glm::translate(view, viewPos);
-        // view = glm::lookAt(viewPos, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        view = glm::lookAt(viewPos, glm::vec3(0.0f, 0.0f, -3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(view));
-        
-        // move the blob positions along the x axis
-        for (int i = 0; i < BLOB_COUNT; i++) {
-            blobs[i].pos_R.x += (i % 2 == 0 ? 1.0f : -1.0f) * 0.002f * sinf(currentFrame);
+
+        // update blob positions and blobData for the uniform block
+        for (int i = 0; i < blobCount; i++) {
+            blobs[i].update(deltaTime);
+            blobData[i] = glm::vec4(blobs[i].pos, blobs[i].radius);
         }
         glBindBuffer(GL_UNIFORM_BUFFER, blobsUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(blobs), blobs);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, blobData.size() * sizeof(glm::vec4), blobData.data());
 
         glBindVertexArray(quadVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // check and call events and swap the buffers
-        glfwPollEvents();
+        // Render ImGui
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(window);
     }
 
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     glfwTerminate();
     return 0;
+}
+
+void framebuffer_size_callback(GLFWwindow *win, int width, int height) {
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+    glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glViewport(0, 0, width, height);
+}
+
+void processInput(GLFWwindow *win) {
+    float cameraSpeed = 2.5f * deltaTime;
+
+    if (glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+        glfwSetWindowShouldClose(win, true);
+    }
 }

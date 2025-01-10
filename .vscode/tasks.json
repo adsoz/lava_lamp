@@ -28,13 +28,19 @@
         "/MDd",
         "/I", "D:/ThirdPartyLibraries/Include", 
         "/I", "./include",
+        "/I", "imgui",
+        "/I", "imgui/backends",
         "src/*",
+        "imgui/*.cpp", 
+        "imgui/backends/imgui_impl_glfw.cpp", "imgui/backends/imgui_impl_opengl3.cpp",
+        "imgui/misc/cpp/imgui_stdlib.cpp",
         "/Fobuild/obj/",
         "/link",
         "/LIBPATH:D:/ThirdPartyLibraries/Lib",
         "glfw3.lib", "opengl32.lib", "user32.lib", "gdi32.lib", "shell32.lib",
         "/OUT:./build/lavalamp.exe"
       ],
+      "dependsOn": ["Clean"],
       "group": {
         "kind": "build",
         "isDefault": true
