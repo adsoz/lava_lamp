@@ -16,7 +16,7 @@
 #include "pnoise.h"
 #include "blob.h"
 
-#define WINDOW_WIDTH 608
+#define WINDOW_WIDTH 600
 #define WINDOW_HEIGHT 1000
 // #define WINDOW_WIDTH 1050
 // #define WINDOW_HEIGHT 608
@@ -50,33 +50,29 @@ float halfFrustumWidth = halfFrustumHeight * (static_cast<float>(WINDOW_WIDTH) /
 void framebuffer_size_callback(GLFWwindow *win, int width, int height);
 void processInput(GLFWwindow *win);
 
-// struct Material {
-//     glm::vec4 color;
-//     glm::vec4 ambient;
-//     glm::vec4 diffuse;
-//     glm::vec4 specular;
-//     float shininess;
-//     float opacity;
-//     float refractiveIndex;
-//     Material(
-//         glm::vec4 color, 
-//         glm::vec4 ambient, 
-//         glm::vec4 diffuse, 
-//         glm::vec4 specular, 
-//         float shininess,
-//         float opacity,
-//         float refractiveIndex
-//     ) : 
-//         color{color}, 
-//         ambient{ambient}, 
-//         diffuse{diffuse}, 
-//         specular{specular}, 
-//         shininess{shininess},
-//         opacity{opacity},
-//         refractiveIndex{refractiveIndex}
-//     {};
-// };
 
+#ifdef USE_PHONG
+struct Material {
+    glm::vec4 color;
+    glm::vec4 ambient;
+    glm::vec4 diffuse;
+    glm::vec4 specular;
+    float shininess;
+    Material(
+        glm::vec4 color, 
+        glm::vec4 ambient, 
+        glm::vec4 diffuse, 
+        glm::vec4 specular, 
+        float shininess
+    ) : 
+        color{color}, 
+        ambient{ambient}, 
+        diffuse{diffuse}, 
+        specular{specular}, 
+        shininess{shininess}
+    {};
+};
+#else
 struct Material {
     glm::vec3 albedo;
     float metallic;
@@ -106,6 +102,7 @@ struct Material {
         scatteringDistance{scatteringDistance}
     {};
 };
+#endif
 
 int main() {
     PerlinNoise pn;
@@ -147,23 +144,25 @@ int main() {
         blobProgram = loadProgram(shaderBinaryPath);
     }
     else {
-        // blobProgram = makeProgram("shaders/blob_vs.glsl", "shaders/blob_fs.glsl");
+#ifdef USE_PHONG
+        blobProgram = makeProgram("shaders/blob_vs.glsl", "shaders/blob_fs.glsl");
+#else
         blobProgram = makeProgram("shaders/blob_vs.glsl", "shaders/blob_pbr_fs.glsl");
+#endif
         if (blobProgram) saveProgramBinary(blobProgram, shaderBinaryPath);
     }
     glUseProgram(blobProgram);
 
-    // // Create and bind blob material to shader
-    // Material objectMat(
-    //     objectColor,
-    //     glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
-    //     glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
-    //     glm::vec4(0.2f, 0.2f, 0.2f, 0.0f), 
-    //     32.0f,
-    //     0.4f, // opacity
-    //     1.47f // refractive index
-    // );
-
+#ifdef USE_PHONG
+    // Create and bind blob material to shader
+    Material objectMat(
+        glm::vec4(1.0f, 0.6f, 0.0f, 1.0f),
+        glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
+        glm::vec4(1.0f, 0.5f, 0.31f, 0.0f), 
+        glm::vec4(0.2f, 0.2f, 0.2f, 0.0f), 
+        32.0f
+    );
+#else
     Material objectMat(
         glm::vec3(1.0f, 0.6f, 0.0f), // albedo
         0.1, // metallic,
@@ -174,6 +173,7 @@ int main() {
         0.0, // transmissionCoefficent,
         1.0 // scatteringDistance
     );
+#endif
 
     GLuint materialUBO;
     glGenBuffers(1, &materialUBO);
@@ -230,7 +230,9 @@ int main() {
     glUniform1i(7, blobCount);
     glUniform1f(8, 1.0f); // threshold for ray marching
     glUniform4fv(9, 1, glm::value_ptr(glm::vec4(0.1f, 0.1f, 0.1f, 1.0f)));
+#ifndef USE_PHONG
     glUniform1f(10, lightIntensity); 
+#endif
     // Bind screen quads
     GLuint quadVAO, quadVBO;
 
@@ -254,7 +256,6 @@ int main() {
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-        // std::cout << "FPS: " << 1 / deltaTime << '\n';
         // input
         glfwPollEvents();
         // Start the Dear ImGui frame
@@ -262,9 +263,24 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Blob Material Properties");
+        ImGui::Begin("Blob Properties");
+        ImGui::SliderFloat("Blob Speed", &Blob::speed, 0.0f, 10.0f);
         ImGui::Text("Modify Blob Material");
 
+#ifdef USE_PHONG
+        static glm::vec3 color = objectMat.color;
+        if (ImGui::ColorEdit3("Blob Color", glm::value_ptr(color))) {
+            objectMat.color = glm::vec4(color, 1.0f);
+            glBindBuffer(GL_UNIFORM_BUFFER, materialUBO);
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Material), &objectMat);
+        }
+        ImGui::Separator();
+        ImGui::SliderFloat4("Ambient Strength", &objectMat.ambient[0], 0.0f, 1.0f);
+        ImGui::SliderFloat4("Diffuse Strength", &objectMat.diffuse[0], 0.0f, 1.0f);
+        ImGui::SliderFloat4("Specular Strength", &objectMat.specular[0], 0.0f, 1.0f);
+        ImGui::SliderFloat("Shininess", &objectMat.shininess, 0.0f, 1.0f);
+        
+#else
         static glm::vec3 albedo = objectMat.albedo;
         if (ImGui::ColorEdit3("Blob Color", glm::value_ptr(albedo))) {
             objectMat.albedo = albedo;
@@ -280,7 +296,7 @@ int main() {
         ImGui::SliderFloat("scatteringCoefficent", &objectMat.scatteringCoefficient, 0.0f, 1.0f);
         ImGui::SliderFloat("transmissionCoefficent", &objectMat.transmissionCoefficent, 0.0f, 1.0f);
         ImGui::SliderFloat("scatteringDistance", &objectMat.scatteringDistance, 0.0f, 10.0f);
-        
+#endif        
 
         // Update the uniform buffer with the new values
         glBindBuffer(GL_UNIFORM_BUFFER, materialUBO);
@@ -289,6 +305,7 @@ int main() {
 
         ImGui::End();
 
+#ifndef USE_PHONG
         ImGui::Begin("Light Properties");
         ImGui::Text("Modify Light Properties");
         if (ImGui::ColorEdit3("Light Color", glm::value_ptr(lightColor))) {
@@ -298,14 +315,14 @@ int main() {
         glUniform1f(10, lightIntensity); // light intensity
 
         ImGui::End();
-
+#endif
         ImDrawList *drawList = ImGui::GetForegroundDrawList();
 
         ImVec2 pos(10.0f, 10.0f);
-        ImU32 color = IM_COL32(255, 255, 0, 255);
+        ImU32 textColor = IM_COL32(255, 255, 0, 255);
         char fpsText[25];
         std::snprintf(fpsText, sizeof(fpsText), "FPS: %.2f", 1.0f / deltaTime);
-        drawList->AddText(pos, color, fpsText);
+        drawList->AddText(pos, textColor, fpsText);
 
 
 
@@ -347,7 +364,7 @@ int main() {
 
 void framebuffer_size_callback(GLFWwindow *win, int width, int height) {
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
-    glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(4, 1, GL_FALSE, glm::value_ptr(projection));
 
     glViewport(0, 0, width, height);
 }

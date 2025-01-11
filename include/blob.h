@@ -7,7 +7,7 @@
 
 struct Blob {
     static int n;
-    static const float speed;
+    static float speed;
     int index{0};
     glm::vec3 pos{0.0f};
     GLfloat radius{0.0f};

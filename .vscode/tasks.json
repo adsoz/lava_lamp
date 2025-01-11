@@ -16,17 +16,51 @@
       }
     },
     {
-      "label": "Build",
+      "label": "Build Phong",
       "type": "shell",
       "command": "cmd.exe",
       "args": [
         "/C",
         "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" &&",
         "cl",
+        "/D",
+        "USE_PHONG",
         "/Zi",
         "/EHsc",
         "/MDd",
         "/I", "D:/ThirdPartyLibraries/Include", 
+        "/I", "./include",
+        "/I", "imgui",
+        "/I", "imgui/backends",
+        "src/*",
+        "imgui/*.cpp", 
+        "imgui/backends/imgui_impl_glfw.cpp", "imgui/backends/imgui_impl_opengl3.cpp",
+        "imgui/misc/cpp/imgui_stdlib.cpp",
+        "/Fobuild/obj/",
+        "/link",
+        "/LIBPATH:D:/ThirdPartyLibraries/Lib",
+        "glfw3.lib", "opengl32.lib", "user32.lib", "gdi32.lib", "shell32.lib",
+        "/OUT:./build/lavalamp.exe"
+      ],
+      "dependsOn": ["Clean"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "Build PBR",
+      "type": "shell",
+      "command": "cmd.exe",
+      "args": [
+        "/C",
+        "\"${env:VC_PATH}\\Auxiliary\\Build\\vcvars64.bat\" &&",
+        "cl",
+        "/Zi",
+        "/EHsc",
+        "/MDd",
+        "/I", "${workspaceFolder}/dependencies/include", 
         "/I", "./include",
         "/I", "imgui",
         "/I", "imgui/backends",

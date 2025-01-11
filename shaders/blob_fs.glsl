@@ -2,7 +2,7 @@
 
 #define MAX_BLOBS 20
 
-layout(location = 0) out vec4 FragColor;
+out vec4 FragColor;
 
 layout(location = 0) uniform vec4 lightColor;
 layout(location = 1) uniform vec3 lightPos;
@@ -20,8 +20,6 @@ layout(std140) uniform Material {
     vec4 diffuse;
     vec4 specular;
     float shininess;
-    float opacity;
-    float refractiveIndex;
 };
 
 layout(std140) uniform BlobData {
@@ -90,8 +88,6 @@ void main() {
             vec3 reflectDir = reflect(-lightDir, norm);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
             vec4 specularColor = specular * spec * lightColor;
-
-            // light of an object is the sum of the light that is reflected, the light that is refracted and scattered back, and the light that is 
 
             FragColor = color * (diffuseColor + ambientColor + specularColor);
             return;

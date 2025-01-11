@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug (C++) - Build and Debug",
+      "name": "Debug (C++) - Build and Debug PBR",
       "type": "cppvsdbg",  // Using the Visual Studio Debugger for MSVC
       "request": "launch",
       "program": "${workspaceFolder}/build/lavalamp.exe",  // Path to your executable
@@ -10,7 +10,18 @@
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
-      "preLaunchTask": "Build", // Make sure this corresponds to your build task
+      "preLaunchTask": "Build PBR", // Make sure this corresponds to your build task
+    },
+    {
+      "name": "Debug (C++) - Build and Debug Phong",
+      "type": "cppvsdbg",  // Using the Visual Studio Debugger for MSVC
+      "request": "launch",
+      "program": "${workspaceFolder}/build/lavalamp.exe",  // Path to your executable
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "preLaunchTask": "Build Phong", // Make sure this corresponds to your build task
     }
   ]
 }

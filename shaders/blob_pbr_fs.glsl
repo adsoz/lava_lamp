@@ -6,8 +6,8 @@ out vec4 FragColor;
 
 layout(location = 0) uniform vec4 lightColor;
 layout(location = 1) uniform vec3 lightPos;
-layout(location = 3) uniform mat4 view;
 layout(location = 2) uniform vec3 viewPos;
+layout(location = 3) uniform mat4 view;
 layout(location = 4) uniform mat4 projection;
 
 layout(location = 5) uniform float width;
@@ -174,9 +174,6 @@ void main() {
             color = pow(color, vec3(1.0/2.2)); 
             FragColor = vec4(color, 1.0);
             
-            // vec3 finalColor = (Lo + transmittedLight) * radiance;  // Without clamping here
-            // finalColor = finalColor / (finalColor + vec3(1.0));  // Apply tone mapping or linear to sRGB conversion after this
-            // FragColor = vec4(pow(finalColor, vec3(1.0/2.2)), 1.0);
             return;
         }
 
