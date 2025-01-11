@@ -5,7 +5,9 @@ This is a personal project to create a lava lamp emulator using OpenGL. The goal
 This project pushed me to dive deeper into shader programming and tackle the complexities of ray marching, teaching me new ways to think about rendering techniques. There were also a lot of challenges related to configuring the build system and setting up all the libraries with regards to OpenGL.
 
 ## Demo
+PBR Lighting
 ![PBR Lighting](demo/lava_lamp_color_demo.gif)
+Phong Lighting
 ![Phong Lighting](demo/lava_lamp_phong_demo.gif)
 
 ## Features
